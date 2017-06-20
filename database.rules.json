@@ -1,0 +1,19 @@
+{
+  "rules": {
+	"users": {
+	  "$uid": {
+		
+		".write": "auth !== null && auth.uid === $uid",
+
+		".read": "auth !== null && auth.provider === 'password'"
+	  }
+	}
+    ,"lists":
+{
+	  
+		".write": "auth !== null",
+	
+		".read": "auth !== null && auth.provider === 'password'"
+}
+  }
+}
