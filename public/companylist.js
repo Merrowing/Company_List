@@ -53,9 +53,9 @@ $(function () {
         });
 
         $listItem.find(".editebtn").on('click', function () {
-            var $earnings = $("#listitem");
+            var $earnings = $("#listitem1");
             var earnings = $earnings.val();
-            $("#listitem").val('');
+            $("#listitem1").val('');
             editeItemInFirebase($(this).closest("[data-item-id]").attr('data-item-id'), earnings);
         });
 
@@ -69,7 +69,7 @@ $(function () {
                 return;
             }
             $("#listitem").val('');
-			$("#listitem1").val('');
+            $("#listitem1").val('');
             companyKey = $(this).closest("[data-item-id]").attr('data-item-id');
             addSubListItem(company, earnings);
         });
@@ -83,7 +83,7 @@ $(function () {
         var id = key;
         subKey = key;
         var css = listItem.css;
-        if (sum === undefined|| sum === earnings) {
+        if (sum === undefined || sum === earnings || sum === NaN) {
             var $newListItem = $("<li data-item-id='" + id + "'></li>").html("<p class='name'>" + company +
                 "<span class='editebtn'><i class='fa fa-pencil'></i></span> " +
                 "<span class='removebtn'><i class='fa fa-remove'></i></span> " +
@@ -107,6 +107,22 @@ $(function () {
         var earnings = listItem.earnings;
         var id = key;
         var css = listItem.css;
+        var itemRef = firebase.database().ref('lists/sharedlist/items/' + key);
+        var item = [];
+        itemRef.on('value', function (snap) { item = snap.child('link').val() || [] });
+        item.forEach(function (tempitem, i, item) {
+            var inRef = firebase.database().ref('lists/sharedlist/items/' + tempitem);
+            var inName;
+            inRef.on('value', function (snap) {
+                inName = snap.child('company').val();
+                if (inName == undefined) {
+                    item.splice(i, 1);
+                }
+            });
+            itemRef.update({
+                link: item
+            })
+        })
         $("#lists [data-item-id='" + id + "']").attr('itemtext', earnings);
         $("#lists [data-item-id='" + id + "']").attr('style', css);
     }
@@ -188,9 +204,7 @@ $(function () {
             user.updateProfile({
                 displayName: temp.full_name
             }).then(function () {
-                // Update successful.
             }, function (error) {
-                // An error happened.
             });
             goToTab("#lists");
         });
@@ -210,30 +224,6 @@ $(function () {
         addListItem(company, earnings);
     });
 
-    $("#sort-items").on('click', function () {
-        var leftcounter = 0;
-        var topcounter = 0;
-        var topPos = 0;
-        var e_topPos = 0;
-        var e_leftPos = 0;
-        $("#sharedlist li").each(function (index) {
-            topPos = $(this).outerHeight(true) > topPos ? $(this).outerHeight(true) : topPos;
-            if (!leftcounter) {
-                e_topPos = topcounter * topPos + 10;
-                topcounter++;
-            }
-            e_leftPos = leftcounter * 33;
-            leftcounter++;
-            leftcounter = leftcounter % 3;
-            var staticPosCSSString = $(this).clone().css({
-                position: 'absolute',
-                top: e_topPos + "px",
-                left: e_leftPos + "%",
-            }).attr('style');
-            var key = $(this).attr('data-item-id');
-            addCSSStringToItem(key, staticPosCSSString);
-        });
-    });
 
     $(".nav.navbar-nav > li > a").on('click', function (e) {
         var id = $(this).attr('id');
@@ -243,7 +233,6 @@ $(function () {
 
         e.preventDefault();
         $(this).parent().addClass('active');
-        //force if logged in
         if (userData !== null) {
             goToTab('#lists');
             return;
@@ -309,7 +298,11 @@ $(function () {
     }
 
     var addSubListItem = function (company, earnings) {
+        var tempRef = firebase.database().ref('lists/sharedlist/items/' + companyKey);
         var postsRef = listRef;
+        var parentCompany;
+        tempRef.on('value', function (snap) { parentCompany = snap.child('company').val() });
+        var childCompany = parentCompany + "||" + company;
         var x = Date();
         var random = randomIntFromInterval(1, 400);
         var Color = '#ffa500';
@@ -325,15 +318,14 @@ $(function () {
         var css = $temp.attr('style');
         try {
             var newItemRef = postsRef.push({
-                company: company,
+                company: childCompany,
                 earnings: earnings,
                 css: css
             });
         } catch (e) {
             $("#lists").find(".status").html(e);
         }
-        var companyRef = firebase.database().ref('lists/sharedlist/items/' + companyKey);
-        var tempRef = firebase.database().ref('lists/sharedlist/items/' + companyKey)
+
         var tempLink = [];
         tempRef.on('value', function (snap) { tempLink.link = snap.child('link').val() || [] });
         tempLink.link.push(subKey)
@@ -372,6 +364,12 @@ $(function () {
 
     var removeItemFromFirebase = function (key) {
         var itemRef = firebase.database().ref('lists/sharedlist/items/' + key);
+        var link = [];
+        itemRef.on('value', function (snap) { link = snap.child('link').val() || [] });
+        link.forEach(function (templink, i, link) {
+            inRef = firebase.database().ref('lists/sharedlist/items/' + templink);
+            inRef.remove();
+        });
         itemRef.remove();
     }
 
